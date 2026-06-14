@@ -68,25 +68,25 @@ gender  |                                                  |
 
 ### 1. Створення індексів (Constraints) до завантаження зв'язків
 
-`CREATE CONSTRAINT user_id IF NOT EXISTS`
-`FOR (u:User)`
-`REQUIRE u.userId IS UNIQUE;`
+CREATE CONSTRAINT user_id IF NOT EXISTS
+FOR (u:User)
+REQUIRE u.userId IS UNIQUE;
 Створює унікальні обмеження для ідентифікаторів користувачів, фільмів та назв жанрів.
 Neo4j автоматично створює відповідні B-Tree індекси.
 Під час створення 1 мільйона зв'язків `RATED` база даних повинна швидко знаходити вузли користувачів і фільмів:
-`MATCH (u:User)`
-`MATCH (m:Movie)`
+MATCH (u:User)
+MATCH (m:Movie)
 Без індексів Neo4j виконував би повне сканування всіх вузлів для кожного рядка CSV-файлу.
 Наявність індексів забезпечує швидкий пошук зі складністю приблизно `O(log n)` та додатково гарантує відсутність дублікатів.
 
 ### 2. Завантаження вузлів (використання MERGE)
 
-`LOAD CSV WITH HEADERS`
-`FROM 'file:///users.csv' AS row`
-`MERGE (u:User {userId: toInteger(row.userId)})`
-`Зчитує дані з CSV-файлу та створює вузли користувачів.`
+LOAD CSV WITH HEADERS
+FROM 'file:///users.csv' AS row
+MERGE (u:User {userId: toInteger(row.userId)})
+Зчитує дані з CSV-файлу та створює вузли користувачів.
 Для фільмів додатково виконується розбиття списку жанрів:
-`split(row.genres, '|')`
+split(row.genres, '|')
 Після цього для кожного жанру створюється або використовується існуючий вузол `Genre`.
 
 ### Чому використовується MERGE, а не CREATE
@@ -105,20 +105,20 @@ Neo4j автоматично створює відповідні B-Tree інде
 
 ### 3. Завантаження масиву зв'язків (`apoc.periodic.iterate`)
 
-`CALL apoc.periodic.iterate(`
-`"LOAD CSV WITH HEADERS FROM 'file:///ratings.csv' AS row RETURN row",`
-`"`
-`MATCH (u:User {userId: toInteger(row.userId)})`
-`MATCH (m:Movie {movieId: toInteger(row.movieId)})`
-`MERGE (u)-[r:RATED]->(m)`
-`SET r.rating = toInteger(row.rating)`
-`",`
-`{`
-`batchSize: 10000,`
-`iterateList: true,`
-`parallel: false`
-`}`
-`)`
+CALL apoc.periodic.iterate(
+"LOAD CSV WITH HEADERS FROM 'file:///ratings.csv' AS row RETURN row",
+"
+MATCH (u:User {userId: toInteger(row.userId)})
+MATCH (m:Movie {movieId: toInteger(row.movieId)})
+MERGE (u)-[r:RATED]->(m)
+SET r.rating = toInteger(row.rating)
+",
+{
+batchSize: 10000,
+iterateList: true,
+parallel: false
+}
+)
 
 Розбиває обробку файлу `ratings.csv` на окремі транзакції (батчі) по 10 000 записів.
 Спроба завантажити понад 1 мільйон зв'язків однією транзакцією може призвести до помилки:
@@ -243,7 +243,7 @@ Neo4j автоматично створює відповідні B-Tree інде
 
 ## **1. Наскільки "тісний світ" у цьому датасеті? Спробуйте кілька пар користувачів.**
 
-Світ у цьому датасеті надзвичайно "тісний". Навіть при тестуванні випадкових пар користувачів (наприклад, `userId: 1` та `userId: 50`, або `userId: 100` та `userId: 5000`), алгоритм майже завжди знаходить шлях. Ізольованих компонентів (де шлях дорівнює нескінченності) практично немає, оскільки датасет складається з активних користувачів, кожен з яких оцінив мінімум 20 фільмів.
+Світ у цьому датасеті надзвичайно "тісний". Навіть при тестуванні випадкових пар користувачів (наприклад, `userId: 10` та `userId: 3259`, або `userId: 100` та `userId: 5000`), алгоритм майже завжди знаходить шлях. Ізольованих компонентів (де шлях дорівнює нескінченності) практично немає, оскільки датасет складається з активних користувачів, кожен з яких оцінив мінімум 20 фільмів.
 
 ## **2. Яка середня довжина шляху? Чи підтверджується гіпотеза «шести рукостискань»?**
 
@@ -266,28 +266,28 @@ Neo4j автоматично створює відповідні B-Tree інде
 
 ### Приклад SQL-запиту
 
-`sql id="6t8pzl"`
-`SELECT m2.title,`
-`COUNT(DISTINCT r3.userId) AS recommendation_strength`
-`FROM Ratings r1`
-`JOIN Ratings r2`
-`ON r1.movieId = r2.movieId`
-`JOIN Ratings r3`
-`ON r2.userId = r3.userId`
-`JOIN Movies m2`
-`ON r3.movieId = m2.movieId`
-`WHERE r1.userId = 1`
-`AND r1.rating >= 4`
-`AND r2.rating >= 4`
-`AND r3.rating >= 4`
-`AND m2.movieId NOT IN (`
-`SELECT movieId`
-`FROM Ratings`
-`WHERE userId = 1`
-`)`
-`GROUP BY m2.title`
-`ORDER BY recommendation_strength DESC`
-`LIMIT 10;`
+sql id="6t8pzl"
+SELECT m2.title,
+COUNT(DISTINCT r3.userId) AS recommendation_strength
+FROM Ratings r1
+JOIN Ratings r2
+ON r1.movieId = r2.movieId
+JOIN Ratings r3
+ON r2.userId = r3.userId
+JOIN Movies m2
+ON r3.movieId = m2.movieId
+WHERE r1.userId = 1
+AND r1.rating >= 4
+AND r2.rating >= 4
+AND r3.rating >= 4
+AND m2.movieId NOT IN (
+SELECT movieId
+FROM Ratings
+WHERE userId = 1
+)
+GROUP BY m2.title
+ORDER BY recommendation_strength DESC
+LIMIT 10;
 
 ### Недоліки такого підходу
 
@@ -331,10 +331,10 @@ Neo4j автоматично створює відповідні B-Tree інде
 
 Наприклад потрібно підвищити на 1 бал усі оцінки, залишені у 2000 році. У SQL це виконується одним запитом:
 
-`sql id="30q7hx"`
-`UPDATE Ratings`
-`SET rating = rating + 1`
-`WHERE year = 2000;`
+sql id="30q7hx"
+UPDATE Ratings
+SET rating = rating + 1
+WHERE year = 2000;
 
 У графовій БД необхідно:
 
@@ -366,13 +366,13 @@ Neo4j автоматично створює відповідні B-Tree інде
 
 Замість:
 
-`text id="6n55pn"`
-`(Movie)-[:HAS_GENRE]->(Genre)`
+text id="6n55pn"
+(Movie)-[:HAS_GENRE]->(Genre)
 
 можна використовувати:
 
-`text id="qvuw90"`
-`(m:Movie:Thriller)`
+text id="qvuw90"
+(m:Movie:Thriller)
 
 Тоді не потрібно обходити вузли жанрів.
 
@@ -380,15 +380,15 @@ Neo4j автоматично створює відповідні B-Tree інде
 
 Додати до вузла `Movie` властивість:
 
-`text id="3wggel"`
-`avg_rating`
+text id="3wggel"
+avg_rating
 
 Після цього запит стане простішим:
 
-`cypher id="hvzcvu"`
-`MATCH (m:Movie:Thriller)`
-`WHERE m.avg_rating > 4`
-`RETURN m;`
+cypher id="hvzcvu"
+MATCH (m:Movie:Thriller)
+WHERE m.avg_rating > 4
+RETURN m;
 
 Такий запит може виконуватися майже миттєво за рахунок індексів.
 
@@ -403,16 +403,16 @@ Neo4j автоматично створює відповідні B-Tree інде
 
 Замість універсального типу ребра:
 
-`text id="im9hbe"`
-`[:RATED]`
+text id="im9hbe"
+[:RATED]
 
 можна використовувати семантичні типи зв'язків:
 
-`text id="l4z3uu"`
-`[:LOVED]`
-`[:LIKED]`
-`[:DISLIKED]`
-`[:HATED]`
+text id="l4z3uu"
+[:LOVED]
+[:LIKED]
+[:DISLIKED]
+[:HATED]
 
 Наприклад:
 
@@ -422,11 +422,11 @@ Neo4j автоматично створює відповідні B-Tree інде
 
 Тоді запит спрощується до:
 
-`cypher id="6d6udf"`
-`MATCH (u:User)-[r:LOVED]->()`
-`WITH u, count(r) AS c`
-`WHERE c > 50`
-`RETURN u;`
+cypher id="6d6udf"
+MATCH (u:User)-[r:LOVED]->()
+WITH u, count(r) AS c
+WHERE c > 50
+RETURN u;
 
 У цьому випадку Neo4j не потрібно зчитувати властивості ребер а достатньо лише підрахувати їх кількість.
 Це дозволяє суттєво прискорити виконання запиту на великих обсягах даних.
